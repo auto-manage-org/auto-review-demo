@@ -1,10 +1,13 @@
 name: 🧐 Gemini Pull Request Review
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
-    types: [opened]
-  pull_request_review_comment:
-    types: [created]
+    types:
+      - opened
+      - synchronize
   pull_request_review:
     types: [submitted]
   workflow_dispatch:
@@ -18,7 +21,7 @@ jobs:
   review-pr:
     if: >
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.action == 'opened') ||
+      (github.event_name == 'pull_request' && github.event.action == 'synchronize') ||
       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
         contains(github.event.comment.body, '@gemini-cli /review') &&
@@ -45,10 +48,10 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: generate_token
-        if: ${{ secrets.APP_ID }}
+        if: ${{ vars.APP_ID }}
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ secrets.APP_ID }}
+          app-id: ${{ vars.APP_ID }}
           private-key: ${{ secrets.PRIVATE_KEY }}
 
       - name: Checkout PR code
@@ -63,33 +66,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
+          echo "testing"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             PR_NUMBER=${{ github.event.inputs.pr_number }}
           else
             PR_NUMBER=${{ github.event.pull_request.number }}
           fi
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          # Get PR details
-          PR_DATA=$(gh pr view $PR_NUMBER --json title,body,additions,deletions,changedFiles,baseRefName,headRefName)
-          echo "pr_data=$PR_DATA" >> "$GITHUB_OUTPUT"
-          # Get file changes
-          CHANGED_FILES=$(gh pr diff $PR_NUMBER --name-only)
-          echo "changed_files<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGED_FILES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-      - name: Get PR details (issue_comment)
-        id: get_pr_comment
-        if: github.event_name == 'issue_comment'
-        env:
-          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-        run: |
-          PR_NUMBER=${{ github.event.issue.number }}
-          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          # Extract additional instructions from comment
-          ADDITIONAL_INSTRUCTIONS=$(echo "$COMMENT_BODY" | sed 's/.*@gemini-cli \/review//' | xargs)
-          echo "additional_instructions=$ADDITIONAL_INSTRUCTIONS" >> "$GITHUB_OUTPUT"
           # Get PR details
           PR_DATA=$(gh pr view $PR_NUMBER --json title,body,additions,deletions,changedFiles,baseRefName,headRefName)
           echo "pr_data=$PR_DATA" >> "$GITHUB_OUTPUT"
@@ -109,6 +92,7 @@ jobs:
           ADDITIONAL_INSTRUCTIONS: ${{ steps.get_pr.outputs.additional_instructions || steps.get_pr_comment.outputs.additional_instructions }}
           REPOSITORY: ${{ github.repository }}
         with:
+          #GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           #OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
           #OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
