@@ -1,1 +1,2 @@
-This repository is for a demo of auto review which will used the gemini-cli.
+* This repository is for a practice demo of auto review which will used the gemini-cli.
+test
