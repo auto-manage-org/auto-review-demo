@@ -1,32 +1,18 @@
 name: Gemini AI Code Review
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize]
 
 jobs:
   review:
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/review')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write # Required to post comments
-      issues: read
 
     steps:
-      - name: Generate GitHub App Token
-        id: app-token
-        if: ${{ vars.APP_ID }}
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.PRIVATE_KEY }}
       - uses: actions/checkout@v4
-      - name: Acknowledge Request
-        run: echo "🔍 Review requested by ${{ github.event.comment.user.login }}..."
-      - name: Checkout PR Branch
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: gh pr checkout ${{ github.event.issue.number }}
+
       # 1. Install Node.js
       - uses: actions/setup-node@v4
         with:
@@ -43,6 +29,14 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
+      - name: Generate GitHub App Token
+        id: app-token
+        if: ${{ vars.APP_ID }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.PRIVATE_KEY }}
+
       # 4. Run the Review
       - name: Gemini Code Review
         env:
@@ -52,25 +46,16 @@ jobs:
           GOOGLE_GENAI_USE_VERTEXAI: "true"
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          echo "🤖 Reviewing PR #${{ github.event.issue.number }}..."
+          # Get the diff (limit to 12000 chars to avoid token limits)
+          gh pr diff ${{ github.event.pull_request.number }} > pr_diff.txt
           
-          # Get the diff
-          gh pr diff ${{ github.event.issue.number }} > pr_diff.txt
-
-          # Check size to save money/tokens
+          # Check if diff is too big, otherwise review it
           if [ $(wc -c < pr_diff.txt) -gt 40000 ]; then
-             echo "⚠️ **Skipping Review:** Diff is too large (>40k chars)." > review.md
+             echo "Diff is too large for a full review." > review.md
           else
              echo "## 🤖 Gemini Code Review" > review.md
-             echo "run by @${{ github.event.comment.user.login }}" >> review.md
-             echo "" >> review.md
-             
-             # The Prompt
-             cat pr_diff.txt | head -c 12000 | gemini "Act as a senior engineer. Review this diff. Flag bugs, security risks, and messy code. Be concise. Use Markdown." >> review.md
+             cat pr_diff.txt | head -c 12000 | gemini "Act as a senior software engineer. Review this pull request diff. Identify critical issues, suggest improvements, and summarize changes." >> review.md
           fi
-
-          # Post the comment
-          gh pr comment ${{ github.event.issue.number }} -F review.md
           
-          # Optional: React to the user's comment to show it worked
-          gh api reactions -f content='+1' /repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions
+          # Post the comment
+          gh pr comment ${{ github.event.pull_request.number }} -F review.md
