@@ -9,8 +9,13 @@ jobs:
     permissions:
       contents: read
       pull-requests: write # Required to post comments
-
+    if: |
+      !contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
     steps:
+      - name: test
+        run: |
+          echo "The author_association:"
+          echo ${{ github.event.pull_request.author_association }}
       - uses: actions/checkout@v4
 
       # 1. Install Node.js
