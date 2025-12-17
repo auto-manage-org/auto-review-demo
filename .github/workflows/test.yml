@@ -1,0 +1,17 @@
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # This checks if the PR author has a trusted association
+    if: |
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Maintainer Script
+        run: |
+          echo "This script only runs for maintainers."
+          echo github.event.pull_request.author_association
