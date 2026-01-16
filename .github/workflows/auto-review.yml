@@ -54,7 +54,7 @@ jobs:
              echo "Diff is too large for a full review." > review.md
           else
              echo "## 🤖 Gemini Code Review" > review.md
-             cat pr_diff.txt | head -c 12000 | gemini "Act as a senior software engineer. Review this pull request diff. Identify critical issues, suggest improvements, and summarize changes." >> review.md
+             cat pr_diff.txt | gemini "Act as a senior software engineer. Review this pull request diff. Identify critical issues, suggest improvements, and summarize changes." >> review.md
           fi
           
           # Post the comment
