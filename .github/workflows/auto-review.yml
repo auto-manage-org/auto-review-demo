@@ -47,7 +47,7 @@ jobs:
           GOOGLE_GENAI_USE_VERTEXAI: "true"
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          echo "This a testing......."
+          echo "This a testing.......2"
           # Get the diff (limit to 12000 chars to avoid token limits)
           gh pr diff ${{ github.event.pull_request.number }} > pr_diff.txt
           
